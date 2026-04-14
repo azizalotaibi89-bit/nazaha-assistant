@@ -11,26 +11,26 @@
        VARIABLES & RESET
     ═══════════════════════════════════════════════════════════ */
     :root {
-      --bg:            #0f1117;
-      --surface:       #171a24;
-      --surface-2:     #1e2233;
-      --surface-3:     #252a3a;
-      --gold:          #c8a84e;
-      --gold-light:    #dfc06a;
-      --gold-dim:      rgba(200,168,78,.18);
-      --navy:          #1a2e5e;
-      --navy-light:    #22407a;
-      --text:          #e6e8f0;
-      --text-muted:    #7a7f9a;
-      --text-dim:      #4a4f6a;
-      --border:        #282d42;
-      --border-light:  #323754;
-      --user-bubble:   #1a2e5e;
-      --bot-bubble:    #171a24;
+      --bg:            #dbeafe;
+      --surface:       #ffffff;
+      --surface-2:     #eff6ff;
+      --surface-3:     #dbeafe;
+      --gold:          #b8860b;
+      --gold-light:    #d4a017;
+      --gold-dim:      rgba(184,134,11,.12);
+      --navy:          #1e3a5f;
+      --navy-light:    #2d5a8e;
+      --text:          #1e3a5f;
+      --text-muted:    #4a6fa5;
+      --text-dim:      #93b5cc;
+      --border:        #bfdbfe;
+      --border-light:  #93c5fd;
+      --user-bubble:   #1e3a5f;
+      --bot-bubble:    #ffffff;
       --radius:        14px;
       --radius-sm:     8px;
-      --shadow:        0 4px 24px rgba(0,0,0,.45);
-      --shadow-sm:     0 2px 8px rgba(0,0,0,.3);
+      --shadow:        0 4px 24px rgba(30,58,95,.12);
+      --shadow-sm:     0 2px 8px rgba(30,58,95,.08);
       --transition:    .22s cubic-bezier(.4,0,.2,1);
     }
 
@@ -58,18 +58,17 @@
       position: fixed; inset: 0; z-index: 1;
       background: linear-gradient(
         160deg,
-        rgba(15,17,23,.93) 0%,
-        rgba(10,14,28,.88) 50%,
-        rgba(15,17,23,.93) 100%
+        rgba(219,234,254,.6) 0%,
+        rgba(191,219,254,.4) 50%,
+        rgba(219,234,254,.6) 100%
       );
     }
-    /* إذا لم توجد صورة خلفية — gradient جميل كـ fallback */
-    #bg-layer:not([style*="bg.jpg"]),
-    #bg-layer[style=""] {
+    /* خلفية زرقاء فاتحة جميلة */
+    #bg-layer {
       background-image:
-        radial-gradient(ellipse at 20% 20%, rgba(26,46,94,.6) 0%, transparent 60%),
-        radial-gradient(ellipse at 80% 80%, rgba(200,168,78,.1) 0%, transparent 60%),
-        linear-gradient(135deg, #0a0d1a 0%, #0f1117 50%, #0a0e1f 100%);
+        radial-gradient(ellipse at 15% 15%, rgba(147,197,253,.5) 0%, transparent 55%),
+        radial-gradient(ellipse at 85% 85%, rgba(184,134,11,.08) 0%, transparent 55%),
+        linear-gradient(135deg, #dbeafe 0%, #eff6ff 50%, #dbeafe 100%) !important;
     }
 
     /* ═══════════════════════════════════════════════════════════
@@ -89,35 +88,48 @@
     ═══════════════════════════════════════════════════════════ */
     #header {
       display: flex;
+      flex-direction: column;
       align-items: center;
-      gap: 14px;
-      padding: 14px 22px;
-      background: rgba(23,26,36,.85);
+      gap: 8px;
+      padding: 18px 22px 14px;
+      background: rgba(255,255,255,.82);
       backdrop-filter: blur(18px);
       border-bottom: 1px solid var(--border);
-      box-shadow: var(--shadow);
+      box-shadow: 0 2px 16px rgba(30,58,95,.1);
       flex-shrink: 0;
+      position: relative;
+    }
+
+    #header .header-top {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
 
     #header .logo-wrap {
-      width: 52px; height: 52px;
-      background: #fff;
+      width: 72px; height: 72px;
+      background: transparent;
       border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      overflow: hidden;
+      overflow: visible;
       flex-shrink: 0;
-      box-shadow: 0 0 0 2px var(--gold-dim), var(--shadow-sm);
     }
 
     #header .logo-wrap img {
-      width: 46px; height: 46px;
+      width: 72px; height: 72px;
       object-fit: contain;
+      filter: sepia(1) saturate(3.5) hue-rotate(5deg) brightness(0.78);
+      drop-shadow: 0 2px 8px rgba(184,134,11,.3);
     }
 
-    #header .titles { flex: 1; }
+    #header .titles {
+      text-align: center;
+      flex: 1;
+    }
 
     #header h1 {
-      font-size: 1.15rem;
+      font-size: 1.2rem;
       font-weight: 700;
       color: var(--gold);
       letter-spacing: -.02em;
@@ -125,7 +137,7 @@
     }
 
     #header p {
-      font-size: .78rem;
+      font-size: .8rem;
       color: var(--text-muted);
       font-weight: 400;
       margin-top: 2px;
@@ -136,7 +148,7 @@
       font-size: .7rem;
       padding: 4px 10px;
       background: var(--gold-dim);
-      border: 1px solid rgba(200,168,78,.3);
+      border: 1px solid rgba(184,134,11,.25);
       border-radius: 20px;
       color: var(--gold);
       white-space: nowrap;
@@ -146,7 +158,7 @@
       content: '';
       width: 6px; height: 6px;
       border-radius: 50%;
-      background: #4ade80;
+      background: #22c55e;
       flex-shrink: 0;
     }
 
@@ -165,7 +177,7 @@
 
     #chat-area::-webkit-scrollbar { width: 4px; }
     #chat-area::-webkit-scrollbar-track { background: transparent; }
-    #chat-area::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 4px; }
+    #chat-area::-webkit-scrollbar-thumb { background: #93c5fd; border-radius: 4px; }
 
     /* ─ Welcome Screen ─ */
     #welcome {
@@ -213,7 +225,7 @@
     }
 
     .suggestion-btn {
-      background: var(--surface-2);
+      background: rgba(255,255,255,.8);
       border: 1px solid var(--border);
       border-radius: var(--radius-sm);
       padding: 11px 14px;
@@ -224,13 +236,15 @@
       font-family: inherit;
       font-size: .82rem;
       line-height: 1.5;
+      box-shadow: 0 1px 4px rgba(30,58,95,.07);
     }
 
     .suggestion-btn:hover {
-      border-color: rgba(200,168,78,.4);
-      background: var(--surface-3);
-      color: var(--gold-light);
+      border-color: rgba(184,134,11,.4);
+      background: #fff;
+      color: var(--gold);
       transform: translateY(-1px);
+      box-shadow: 0 3px 10px rgba(30,58,95,.12);
     }
 
     .suggestion-btn .s-icon {
@@ -260,8 +274,9 @@
 
     .bubble.user {
       background: var(--user-bubble);
-      border: 1px solid rgba(255,255,255,.07);
+      border: 1px solid rgba(30,58,95,.15);
       border-top-right-radius: 4px;
+      color: #ffffff;
     }
 
     .bubble.bot {
@@ -269,10 +284,11 @@
       border: 1px solid var(--border);
       border-top-left-radius: 4px;
       box-shadow: var(--shadow-sm);
+      color: var(--text);
     }
 
     /* ─ Markdown in bot bubbles ─ */
-    .bubble.bot strong, .bubble.bot b { color: var(--gold-light); font-weight: 700; }
+    .bubble.bot strong, .bubble.bot b { color: var(--gold); font-weight: 700; }
     .bubble.bot em, .bubble.bot i { color: var(--text-muted); font-style: italic; }
 
     .bubble.bot h1,.bubble.bot h2,.bubble.bot h3 {
@@ -295,7 +311,7 @@
 
     .bubble.bot blockquote {
       border-right: 3px solid var(--gold);
-      background: var(--surface-3);
+      background: #eff6ff;
       padding: 8px 14px;
       border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
       margin: 10px 0;
@@ -304,11 +320,11 @@
     }
 
     .bubble.bot code {
-      background: var(--surface-3);
+      background: #eff6ff;
       padding: 1px 6px;
       border-radius: 4px;
       font-size: .85em;
-      color: var(--gold-light);
+      color: var(--gold);
       font-family: 'Cairo', monospace;
     }
 
@@ -380,7 +396,7 @@
     ═══════════════════════════════════════════════════════════ */
     #input-area {
       padding: 14px 16px 16px;
-      background: rgba(23,26,36,.9);
+      background: rgba(255,255,255,.88);
       backdrop-filter: blur(18px);
       border-top: 1px solid var(--border);
       flex-shrink: 0;
@@ -395,7 +411,7 @@
 
     #q {
       flex: 1;
-      background: var(--surface-2);
+      background: #f0f7ff;
       border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 12px 16px;
@@ -410,9 +426,9 @@
       transition: border-color var(--transition);
     }
 
-    #q::placeholder { color: var(--text-dim); }
+    #q::placeholder { color: #93b5cc; }
 
-    #q:focus { border-color: rgba(200,168,78,.5); }
+    #q:focus { border-color: rgba(184,134,11,.5); }
 
     #send-btn {
       width: 46px; height: 46px;
@@ -423,7 +439,7 @@
       cursor: pointer;
       display: flex; align-items: center; justify-content: center;
       transition: var(--transition);
-      color: #0f1117;
+      color: #ffffff;
     }
 
     #send-btn:hover:not(:disabled) {
@@ -459,7 +475,7 @@
       transition: var(--transition);
       flex-shrink: 0;
     }
-    #clear-btn:hover { border-color: rgba(200,168,78,.4); color: var(--gold); }
+    #clear-btn:hover { border-color: rgba(184,134,11,.4); color: var(--gold); }
     #clear-btn svg { width: 16px; height: 16px; }
 
     /* ═══════════════════════════════════════════════════════════
@@ -508,19 +524,21 @@
 
   <!-- HEADER -->
   <header id="header">
+    <div class="header-top">
+      <div class="badge">متصل</div>
+      <button id="clear-btn" title="محادثة جديدة">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>
+        </svg>
+      </button>
+    </div>
     <div class="logo-wrap">
-      <img src="/static/logo.png" alt="شعار نزاهة" onerror="this.style.display='none';this.parentElement.innerHTML='<svg width=32 height=32 viewBox=\'0 0 24 24\' fill=\'%231a2e5e\'><path d=\'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5\' stroke=\'%23c8a84e\' stroke-width=1.5 fill=\'none\'/></svg>'" />
+      <img src="/static/logo.png" alt="شعار نزاهة" onerror="this.style.display='none'" />
     </div>
     <div class="titles">
       <h1>مستشار نزاهة القانوني</h1>
       <p>هيئة مكافحة الفساد — دولة الكويت</p>
     </div>
-    <div class="badge">متصل</div>
-    <button id="clear-btn" title="محادثة جديدة">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>
-      </svg>
-    </button>
   </header>
 
   <!-- CHAT -->
