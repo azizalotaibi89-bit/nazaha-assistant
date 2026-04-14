@@ -329,7 +329,13 @@
       #app.chat-active #bottom-spacer { display: none; }
 
       .bubble { max-width: 92%; }
-      .sources-row { max-width: 92%; }
+      .sources-row { max-width: 92%; gap: 4px; margin-top: 4px; }
+      .source-chip {
+        padding: 2px 8px;
+        font-size: .68rem;
+        border-radius: 16px;
+        gap: 3px;
+      }
 
       #input-area { padding: 10px 12px 16px; }
     }
@@ -430,14 +436,26 @@ function createBotBubble() {
 
 function renderSources(container, sources) {
   if (!sources || !sources.length) return;
-  container.innerHTML = sources.map(s => {
-    const label = s.section ? `${s.source} | ${s.section}` : `${s.source} | ص${s.page}`;
-    return `<div class="source-chip" title="${label}">
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+  const isMobile = window.innerWidth <= 600;
+  // إزالة المكررات
+  const seen = new Set();
+  const unique = sources.filter(s => {
+    const key = s.section || s.page;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  container.innerHTML = unique.map(s => {
+    const fullLabel = s.section ? `${s.source} | ${s.section}` : `${s.source} | ص${s.page}`;
+    // على الموبايل: الباب/الفصل فقط بدون اسم القانون
+    const mobileLabel = s.section ? s.section : `ص${s.page}`;
+    const display = isMobile ? mobileLabel : (fullLabel.length > 55 ? fullLabel.substring(0, 52) + '…' : fullLabel);
+    return `<div class="source-chip" title="${fullLabel}">
+      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
         <polyline points="14 2 14 8 20 8"/>
       </svg>
-      ${escapeHtml(label.length > 55 ? label.substring(0, 52) + '…' : label)}
+      ${escapeHtml(display)}
     </div>`;
   }).join('');
 }
