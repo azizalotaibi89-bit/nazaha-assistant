@@ -84,82 +84,38 @@
     }
 
     /* ═══════════════════════════════════════════════════════════
-       HEADER
+       HEADER — مخفي
     ═══════════════════════════════════════════════════════════ */
-    #header {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 8px;
-      padding: 18px 22px 14px;
-      background: rgba(255,255,255,.82);
-      backdrop-filter: blur(18px);
-      border-bottom: 1px solid var(--border);
-      box-shadow: 0 2px 16px rgba(30,58,95,.1);
-      flex-shrink: 0;
-      position: relative;
-    }
+    #header { display: none; }
 
-    #header .header-top {
-      width: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    #header .logo-wrap {
-      width: 72px; height: 72px;
-      background: transparent;
-      border-radius: 50%;
+    /* ─ زر مسح عائم ─ */
+    #float-clear {
+      position: fixed;
+      top: 14px;
+      left: 14px;
+      z-index: 10;
+      background: rgba(255,255,255,.75);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      width: 36px; height: 36px;
       display: flex; align-items: center; justify-content: center;
-      overflow: visible;
-      flex-shrink: 0;
-    }
-
-    #header .logo-wrap img {
-      width: 72px; height: 72px;
-      object-fit: contain;
-      filter: sepia(1) saturate(3.5) hue-rotate(5deg) brightness(0.78);
-      drop-shadow: 0 2px 8px rgba(184,134,11,.3);
-    }
-
-    #header .titles {
-      text-align: center;
-      flex: 1;
-    }
-
-    #header h1 {
-      font-size: 1.2rem;
-      font-weight: 700;
-      color: var(--gold);
-      letter-spacing: -.02em;
-      line-height: 1.2;
-    }
-
-    #header p {
-      font-size: .8rem;
+      cursor: pointer;
       color: var(--text-muted);
-      font-weight: 400;
-      margin-top: 2px;
+      transition: var(--transition);
+      box-shadow: var(--shadow-sm);
     }
+    #float-clear:hover { border-color: rgba(184,134,11,.4); color: var(--gold); }
+    #float-clear svg { width: 16px; height: 16px; }
 
-    #header .badge {
-      display: flex; align-items: center; gap: 5px;
-      font-size: .7rem;
-      padding: 4px 10px;
-      background: var(--gold-dim);
-      border: 1px solid rgba(184,134,11,.25);
-      border-radius: 20px;
-      color: var(--gold);
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-    #header .badge::before {
-      content: '';
-      width: 6px; height: 6px;
-      border-radius: 50%;
-      background: #22c55e;
-      flex-shrink: 0;
+    /* ─ شعار الـ Welcome ─ */
+    #welcome .big-logo {
+      width: 180px; height: 180px;
+      object-fit: contain;
+      mix-blend-mode: multiply;
+      filter: sepia(1) saturate(3.5) hue-rotate(5deg) brightness(0.75);
+      margin-bottom: 4px;
+      animation: fadeIn .6s ease;
     }
 
     /* ═══════════════════════════════════════════════════════════
@@ -522,29 +478,20 @@
 
 <div id="app">
 
-  <!-- HEADER -->
-  <header id="header">
-    <div class="header-top">
-      <div class="badge">متصل</div>
-      <button id="clear-btn" title="محادثة جديدة">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>
-        </svg>
-      </button>
-    </div>
-    <div class="logo-wrap">
-      <img src="/static/logo.png" alt="شعار نزاهة" onerror="this.style.display='none'" />
-    </div>
-    <div class="titles">
-      <h1>مستشار نزاهة القانوني</h1>
-      <p>هيئة مكافحة الفساد — دولة الكويت</p>
-    </div>
-  </header>
+  <!-- HEADER مخفي — تم إزالته -->
+  <header id="header"></header>
+
+  <!-- زر مسح عائم -->
+  <button id="float-clear" id="clear-btn" title="محادثة جديدة">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>
+    </svg>
+  </button>
 
   <!-- CHAT -->
   <div id="chat-area">
     <div id="welcome">
-      <div class="welcome-icon">⚖️</div>
+      <img src="/static/logo.png" alt="شعار نزاهة" class="big-logo" onerror="this.style.display='none'" />
       <h2>مستشار نزاهة القانوني</h2>
       <p>يمكنك سؤالي عن أي شيء يتعلق بقوانين ولوائح هيئة مكافحة الفساد. إجاباتي مستندة حصراً إلى الوثائق الرسمية للهيئة.</p>
       <div class="suggestion-grid">
@@ -600,7 +547,7 @@ const chatArea   = document.getElementById('chat-area');
 const welcome    = document.getElementById('welcome');
 const qInput     = document.getElementById('q');
 const sendBtn    = document.getElementById('send-btn');
-const clearBtn   = document.getElementById('clear-btn');
+const clearBtn   = document.getElementById('float-clear');
 const inputForm  = document.getElementById('input-form');
 
 /* configure marked */
@@ -813,7 +760,7 @@ clearBtn.addEventListener('click', () => {
   const w = document.createElement('div');
   w.id = 'welcome';
   w.innerHTML = `
-    <div class="welcome-icon">⚖️</div>
+    <img src="/static/logo.png" alt="شعار نزاهة" class="big-logo" onerror="this.style.display='none'" />
     <h2>مستشار نزاهة القانوني</h2>
     <p>يمكنك سؤالي عن أي شيء يتعلق بقوانين ولوائح هيئة مكافحة الفساد. إجاباتي مستندة حصراً إلى الوثائق الرسمية للهيئة.</p>
     <div class="suggestion-grid">
