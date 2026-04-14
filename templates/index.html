@@ -309,13 +309,24 @@
         width: 32px; height: 32px;
       }
 
+      /* الشعار في النصف العلوي */
+      #chat-area { flex: 0 0 50dvh; overflow: hidden; }
+
       #welcome {
         justify-content: flex-end;
         padding: 0 20px 28px;
+        flex: 1;
       }
 
-      #welcome .big-logo { width: 160px; height: 160px; }
+      #welcome .big-logo { width: 170px; height: 170px; }
       #welcome h2 { font-size: 1.2rem; }
+
+      /* مسافة فارغة تحت الحقل تدفعه للمنتصف */
+      #bottom-spacer { display: block; flex: 1; min-height: 0; }
+
+      /* عند بدء المحادثة: تخطيط عادي */
+      #app.chat-active #chat-area { flex: 1; overflow-y: auto; }
+      #app.chat-active #bottom-spacer { display: none; }
 
       .bubble { max-width: 92%; }
       .sources-row { max-width: 92%; }
@@ -360,6 +371,8 @@
     <p class="char-hint">اضغط Enter للإرسال • Shift+Enter لسطر جديد</p>
   </div>
 
+  <div id="bottom-spacer"></div>
+
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
@@ -382,7 +395,10 @@ function nowTime() {
 function scrollBottom(smooth = true) {
   setTimeout(() => chatArea.scrollTo({ top: chatArea.scrollHeight, behavior: smooth ? 'smooth' : 'instant' }), 30);
 }
-function hideWelcome() { if (welcome) welcome.style.display = 'none'; }
+function hideWelcome() {
+  if (welcome) welcome.style.display = 'none';
+  document.getElementById('app').classList.add('chat-active');
+}
 function setQ(text) { qInput.value = text; qInput.dispatchEvent(new Event('input')); qInput.focus(); }
 
 qInput.addEventListener('input', () => {
@@ -507,6 +523,7 @@ qInput.addEventListener('keydown', e => {
 clearBtn.addEventListener('click', () => {
   history = [];
   chatArea.innerHTML = '';
+  document.getElementById('app').classList.remove('chat-active');
   const w = document.createElement('div');
   w.id = 'welcome';
   w.innerHTML = `
