@@ -139,12 +139,8 @@
     }
 
     .welcome-logo {
-      width: 80px; height: 80px;
+      width: 120px; height: 120px;
       object-fit: contain;
-      border-radius: 16px;
-      background: var(--bg-2);
-      padding: 10px;
-      border: 1px solid var(--border-2);
       margin-bottom: 4px;
     }
 
@@ -165,45 +161,13 @@
     #welcome h1 {
       font-size: 1.55rem;
       font-weight: 700;
-      color: var(--text);
+      color: var(--gold);
       line-height: 1.3;
     }
 
-    #welcome p {
-      font-size: .88rem;
-      color: var(--text-muted);
-      max-width: 420px;
-      line-height: 1.7;
-    }
+    #welcome p { display: none; }
 
-    .suggestion-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      max-width: 540px;
-      width: 100%;
-      margin-top: 8px;
-    }
-
-    .suggestion-btn {
-      background: var(--bg-2);
-      border: 1px solid var(--border-2);
-      border-radius: var(--radius-sm);
-      padding: 12px 14px;
-      text-align: right;
-      cursor: pointer;
-      transition: .18s;
-      color: var(--text-muted);
-      font-family: inherit;
-      font-size: .8rem;
-      line-height: 1.55;
-    }
-    .suggestion-btn:hover {
-      border-color: var(--gold-border);
-      color: var(--text);
-      background: var(--bg-3);
-    }
-    .suggestion-btn .s-icon { font-size: .95rem; display: block; margin-bottom: 3px; color: var(--gold); }
+    .suggestion-grid { display: none; }
 
     /* ── Messages ── */
     .msg-row {
@@ -486,21 +450,6 @@
         مدعوم بالذكاء الاصطناعي
       </div>
       <h1>مستشار نزاهة القانوني</h1>
-      <p>اسألني عن أي قانون كويتي — من قانون المرور إلى قوانين الأعمال والعمل والإجراءات الجزائية وأكثر من 85 تشريعاً</p>
-      <div class="suggestion-grid">
-        <button class="suggestion-btn" onclick="setQ(this.dataset.q)" data-q="ما هي عقوبة تجاوز إشارة المرور الحمراء؟">
-          <span class="s-icon">🚦</span>عقوبة تجاوز الإشارة الحمراء
-        </button>
-        <button class="suggestion-btn" onclick="setQ(this.dataset.q)" data-q="ما هي صلاحيات هيئة مكافحة الفساد؟">
-          <span class="s-icon">⚖️</span>صلاحيات هيئة مكافحة الفساد
-        </button>
-        <button class="suggestion-btn" onclick="setQ(this.dataset.q)" data-q="ما هي حقوق الموظف عند الفصل من العمل؟">
-          <span class="s-icon">👔</span>حقوق الموظف عند الفصل
-        </button>
-        <button class="suggestion-btn" onclick="setQ(this.dataset.q)" data-q="ما هي عقوبة غسل الأموال في الكويت؟">
-          <span class="s-icon">🏛️</span>عقوبة غسل الأموال
-        </button>
-      </div>
     </div>
   </div>
 
@@ -706,21 +655,6 @@ clearBtn.addEventListener('click', () => {
         مدعوم بالذكاء الاصطناعي
       </div>
       <h1>مستشار نزاهة القانوني</h1>
-      <p>اسألني عن أي قانون كويتي — من قانون المرور إلى قوانين الأعمال والعمل والإجراءات الجزائية وأكثر من 85 تشريعاً</p>
-      <div class="suggestion-grid">
-        <button class="suggestion-btn" onclick="setQ(this.dataset.q)" data-q="ما هي عقوبة تجاوز إشارة المرور الحمراء؟">
-          <span class="s-icon">🚦</span>عقوبة تجاوز الإشارة الحمراء
-        </button>
-        <button class="suggestion-btn" onclick="setQ(this.dataset.q)" data-q="ما هي صلاحيات هيئة مكافحة الفساد؟">
-          <span class="s-icon">⚖️</span>صلاحيات هيئة مكافحة الفساد
-        </button>
-        <button class="suggestion-btn" onclick="setQ(this.dataset.q)" data-q="ما هي حقوق الموظف عند الفصل من العمل؟">
-          <span class="s-icon">👔</span>حقوق الموظف عند الفصل
-        </button>
-        <button class="suggestion-btn" onclick="setQ(this.dataset.q)" data-q="ما هي عقوبة غسل الأموال في الكويت؟">
-          <span class="s-icon">🏛️</span>عقوبة غسل الأموال
-        </button>
-      </div>
     </div>`;
   qInput.focus();
 });
