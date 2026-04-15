@@ -43,18 +43,53 @@ def load_index():
 load_index()
 
 
+# ─── BiDi تصحيح تشفير الخط ────────────────────────────────────────────────────
+# بعض الوثائق تستخدم خط mylotus/Lotus-Light الذي يخزّن أزواج الحروف بترتيب معكوس
+# هذه القائمة تحوّل الاستعلام الصحيح إلى الشكل المخزّن في الفهرس
+_BIDI_SWAPS = [
+    ('في',  'يف'),   # حرف الجر "في" → يف
+    ('تج',  'جت'),   # ت+ج (تجاوز → جتاوز)
+    ('تح',  'حت'),   # ت+ح (تحت → حتت)
+    ('لم',  'مل'),   # ل+م (المرور → امـلرور)
+    ('لج',  'جل'),   # ل+ج (الجلسة → اجللسة)
+    ('لح',  'حل'),   # ل+ح (الحمراء → احلمراء)
+    ('لد',  'دل'),   # ل+د (الحد → احلد via لح+د)
+    ('سر',  'رس'),   # س+ر (السرعة → الرسعة)
+    ('صى',  'ىص'),   # ص+ى (الأقصى → الاقىص)
+]
+
+def garble_for_bidi(text: str) -> str:
+    """تحويل النص العربي الصحيح إلى الشكل المشوّه المخزّن في الفهرس (لخطوط mylotus)"""
+    result = text
+    for correct, garbled in _BIDI_SWAPS:
+        result = result.replace(correct, garbled)
+    return result
+
+
 # ─── دالة البحث ───────────────────────────────────────────────────────────────
 def search(query: str, k: int = 6) -> list[dict]:
-    """BM25 search مع Arabic normalization"""
-    norm_q = normalize_arabic(query)
-    tokens = norm_q.split()
+    """BM25 search مع Arabic normalization + BiDi query expansion"""
+    norm_q   = normalize_arabic(query)
+    garbled_q = normalize_arabic(garble_for_bidi(query))
+
+    tokens         = norm_q.split()
+    garbled_tokens = garbled_q.split()
+
     if not tokens:
         return []
-    scores = BM25_INDEX.get_scores(tokens)
-    ranked = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)
+
+    scores1 = BM25_INDEX.get_scores(tokens)
+
+    if garbled_tokens != tokens:
+        scores2  = BM25_INDEX.get_scores(garbled_tokens)
+        combined = [max(s1, s2) for s1, s2 in zip(scores1, scores2)]
+    else:
+        combined = scores1
+
+    ranked = sorted(range(len(combined)), key=lambda i: combined[i], reverse=True)
     results = []
     for idx in ranked[:k]:
-        if scores[idx] > 0:
+        if combined[idx] > 0:
             results.append(CHUNKS[idx])
     return results
 
