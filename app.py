@@ -66,31 +66,130 @@ def garble_for_bidi(text: str) -> str:
     return result
 
 
+# ─── تحويل اللهجة إلى مصطلحات قانونية فصحى (static) ──────────────────────────
+# القاعدة: نحوّل لهجة → مصطلح قانوني بصيغة المصدر مطابقة للفهرس
+_DIALECT = [
+    # حذف كلمات الاستفهام غير القانونية
+    (r'\b(شنو|شو|ويش|وش|إيش|ايش|اذا|إذا)\b', ''),
+    # المرور — تجاوز (مصدر لا فعل ماضٍ)
+    (r'\bطفت\b',          'تجاوز إشارة المرور'),
+    (r'\bطفيت\b',         'تجاوز إشارة المرور'),
+    (r'\bطفّيت\b',        'تجاوز إشارة المرور'),
+    (r'\b[اأإ]تجاوزت\b',  'تجاوز'),
+    (r'\bتجاوزت\b',       'تجاوز'),
+    # الإشارة — نحذف "ال" لأن الفهرس يحتوي "اشاره" بدون أداة
+    (r'\b[اأإ]لإشاره\b',  'إشارة المرور'),
+    (r'\b[اأإ]لاشاره\b',  'إشارة المرور'),
+    (r'\bالإشاره\b',       'إشارة المرور'),
+    (r'\bإشاره\b',         'إشارة'),
+    # الألوان
+    (r'\bالحمرا\b',        'الحمراء'),
+    (r'\bالخضرا\b',        'الخضراء'),
+    # السيارة/المركبة
+    (r'\bسيارت[يهاك]\b',  'مركبة'),
+    (r'\bالسياره\b',       'المركبة'),
+    (r'\bسياره\b',         'مركبة'),
+    # العمل والوظيفة
+    (r'\bشغل[يهاك]\b',    'عمل'),
+    (r'\bالدوام\b',        'العمل'),
+    (r'\bيطردن[يي]\b',    'فصل'),
+    (r'\bطردون[يي]\b',    'فصل'),
+    # العقوبة (مصدر)
+    (r'\bعقوبت[يهاك]\b',  'عقوبة'),
+    # الإرادة
+    (r'\b(أبي|أبغى|بغيت|ابغى)\b', ''),
+    # نفي الوجود
+    (r'\bماكو\b',          'لا يوجد'),
+    (r'\bأكو\b',           'يوجد'),
+]
+
+def dialect_to_msa(text: str) -> str:
+    """تحويل اللهجة الكويتية/الخليجية إلى مصطلحات قانونية فصحى مطابقة للفهرس"""
+    for pattern, replacement in _DIALECT:
+        text = re.sub(pattern, replacement, text, flags=re.UNICODE)
+    # تنظيف مسافات زائدة
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
+
+# ─── تحويل LLM للكلمات الرئيسية (fallback) ──────────────────────────────────
+def extract_keywords_llm(question: str, api_key: str) -> str:
+    """استخراج كلمات بحث قانونية فصحى من السؤال باستخدام Claude Haiku"""
+    try:
+        client = anthropic.Anthropic(api_key=api_key)
+        msg = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=60,
+            messages=[{
+                "role": "user",
+                "content": (
+                    "حوّل هذا السؤال إلى كلمات بحث قانونية بالعربية الفصحى فقط "
+                    "(بدون شرح، أقل من 8 كلمات):\n" + question
+                )
+            }]
+        )
+        return msg.content[0].text.strip()
+    except Exception:
+        return question
+
+
 # ─── دالة البحث ───────────────────────────────────────────────────────────────
-def search(query: str, k: int = 6) -> list[dict]:
-    """BM25 search مع Arabic normalization + BiDi query expansion"""
-    norm_q   = normalize_arabic(query)
-    garbled_q = normalize_arabic(garble_for_bidi(query))
-
-    tokens         = norm_q.split()
-    garbled_tokens = garbled_q.split()
-
+def _bm25_search(tokens: list[str], k: int) -> tuple[list[dict], float]:
+    """تشغيل BM25 وإرجاع النتائج مع أعلى نقاط"""
     if not tokens:
+        return [], 0.0
+    scores  = BM25_INDEX.get_scores(tokens)
+    top_score = max(scores) if len(scores) > 0 else 0.0
+    ranked  = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)
+    results = [CHUNKS[i] for i in ranked[:k] if scores[i] > 0]
+    return results, top_score
+
+
+def search(query: str, k: int = 6, api_key: str = "") -> list[dict]:
+    """
+    BM25 search متعدد المحاور:
+      1. استعلام أصلي
+      2. نسخة BiDi garbled
+      3. نسخة بعد تحويل اللهجة
+      4. LLM keyword extraction (إذا كانت النتائج ضعيفة)
+    """
+    # ── إعداد الاستعلامات ──────────────────────────────────────────────────────
+    q_original = normalize_arabic(query)
+    q_garbled  = normalize_arabic(garble_for_bidi(query))
+    q_dialect  = normalize_arabic(dialect_to_msa(query))
+
+    queries = {q_original, q_garbled, q_dialect}
+
+    # ── تجميع النقاط من جميع الاستعلامات ─────────────────────────────────────
+    import numpy as np
+    combined = None
+    for q in queries:
+        tokens = q.split()
+        if not tokens:
+            continue
+        scores = BM25_INDEX.get_scores(tokens)
+        combined = scores if combined is None else np.maximum(combined, scores)
+
+    if combined is None:
         return []
 
-    scores1 = BM25_INDEX.get_scores(tokens)
+    top_score = float(np.max(combined))
+    ranked    = sorted(range(len(combined)), key=lambda i: combined[i], reverse=True)
+    results   = [CHUNKS[i] for i in ranked[:k] if combined[i] > 0]
 
-    if garbled_tokens != tokens:
-        scores2  = BM25_INDEX.get_scores(garbled_tokens)
-        combined = [max(s1, s2) for s1, s2 in zip(scores1, scores2)]
-    else:
-        combined = scores1
+    # ── LLM fallback إذا كانت النتائج ضعيفة ──────────────────────────────────
+    SCORE_THRESHOLD = 4.0
+    if top_score < SCORE_THRESHOLD and api_key:
+        kw = extract_keywords_llm(query, api_key)
+        if kw and kw != query:
+            kw_tokens = normalize_arabic(kw).split()
+            if kw_tokens:
+                kw_scores  = BM25_INDEX.get_scores(kw_tokens)
+                kw_combined = np.maximum(combined, kw_scores)
+                kw_ranked   = sorted(range(len(kw_combined)),
+                                     key=lambda i: kw_combined[i], reverse=True)
+                results = [CHUNKS[i] for i in kw_ranked[:k] if kw_combined[i] > 0]
 
-    ranked = sorted(range(len(combined)), key=lambda i: combined[i], reverse=True)
-    results = []
-    for idx in ranked[:k]:
-        if combined[idx] > 0:
-            results.append(CHUNKS[idx])
     return results
 
 
@@ -144,7 +243,7 @@ def chat():
         return jsonify({"error": "ANTHROPIC_API_KEY غير مضبوط على الخادم"}), 500
 
     # ── البحث ──────────────────────────────────────────────────────────────────
-    results = search(question)
+    results = search(question, api_key=api_key)
 
     if results:
         parts = []
