@@ -16,6 +16,31 @@ from rank_bm25 import BM25Okapi
 app = Flask(__name__)
 CORS(app)
 
+# ─── Arabic Light Stemmer ────────────────────────────────────────────────────
+# يحذف البادئات واللواحق الشائعة لتحسين مطابقة المصطلحات القانونية
+# مثال: "المركبة" → "مركب"  ،  "مركبات" → "مركب"  ← يتطابقان الآن
+# نتجنب "ون" و"ين" لأن "قانون" يُخطئ → "قان" (ون ليست لاحقة جمع هنا)
+_AR_PREFIXES = ['وال', 'بال', 'فال', 'كال', 'لل', 'ال']  # بادئات آمنة فقط (نتجنب و/ف/ب/ل/ك المفردة)
+_AR_SUFFIXES = ['ات', 'هم', 'هن', 'كم', 'كن', 'نا', 'ها', 'تم', 'تن', 'ني', 'ه']
+
+def _stem_arabic(word: str) -> str:
+    if len(word) <= 3:
+        return word
+    # حذف البادئة (يشترط بقاء 3 أحرف على الأقل)
+    for p in _AR_PREFIXES:
+        if word.startswith(p) and len(word) - len(p) >= 3:
+            word = word[len(p):]
+            break
+    if len(word) <= 3:
+        return word
+    # حذف اللاحقة (يشترط بقاء 3 أحرف على الأقل)
+    for s in _AR_SUFFIXES:
+        if word.endswith(s) and len(word) - len(s) >= 3:
+            word = word[:-len(s)]
+            break
+    return word
+
+
 # ─── تطبيع النص العربي ────────────────────────────────────────────────────────
 def normalize_arabic(text: str) -> str:
     text = re.sub(r'[\u064B-\u065F\u0670]', '', text)   # إزالة التشكيل
@@ -24,6 +49,9 @@ def normalize_arabic(text: str) -> str:
     text = re.sub(r'ى', 'ي', text)                       # الألف المقصورة
     text = re.sub(r'ـ', '', text)                        # التطويل
     text = re.sub(r'\s+', ' ', text).strip()
+    # تطبيق الـ stemmer على كل كلمة
+    words = text.split()
+    text = ' '.join(_stem_arabic(w) for w in words)
     return text
 
 
@@ -36,7 +64,8 @@ def load_index():
     chunks_path = os.path.join(os.path.dirname(__file__), "chunks.json")
     with open(chunks_path, "r", encoding="utf-8") as f:
         CHUNKS = json.load(f)
-    corpus = [c["normalized_text"].split() for c in CHUNKS]
+    # نعيد التطبيع من النص الخام حتى يستفيد الفهرس من الـ Stemmer
+    corpus = [normalize_arabic(c["text"]).split() for c in CHUNKS]
     BM25_INDEX = BM25Okapi(corpus)
     print(f"✅ Index محمّل: {len(CHUNKS)} chunk من {len(set(c['source'] for c in CHUNKS))} مصدر")
 
@@ -145,7 +174,7 @@ def _bm25_search(tokens: list[str], k: int) -> tuple[list[dict], float]:
     return results, top_score
 
 
-def search(query: str, k: int = 6, api_key: str = "") -> list[dict]:
+def search(query: str, k: int = 8, api_key: str = "") -> list[dict]:
     """
     BM25 search متعدد المحاور:
       1. استعلام أصلي
@@ -178,7 +207,7 @@ def search(query: str, k: int = 6, api_key: str = "") -> list[dict]:
     results   = [CHUNKS[i] for i in ranked[:k] if combined[i] > 0]
 
     # ── LLM fallback إذا كانت النتائج ضعيفة ──────────────────────────────────
-    SCORE_THRESHOLD = 4.0
+    SCORE_THRESHOLD = 3.0
     if top_score < SCORE_THRESHOLD and api_key:
         kw = extract_keywords_llm(query, api_key)
         if kw and kw != query:
@@ -317,4 +346,3 @@ def health():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
-
