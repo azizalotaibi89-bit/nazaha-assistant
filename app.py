@@ -239,9 +239,9 @@ BASE_SYSTEM = """أنت مستشار قانوني متخصص في التشريع
 قانون الإيجار، قانون المعاملات الإلكترونية، قانون تنظيم القضاء، وغيرها.
 
 قواعد الإجابة:
-- تجيب بناءً على المقاطع المرجعية المقدمة.
+- تجيب بناءً على المقاطع المرجعية المقدمة فقط.
 - تتحدث بثقة وتعطي رأيك القانوني المهني المباشر دون تحفظات أو إخلاء مسؤولية.
-- تذكر دائماً المصدر (رقم المادة أو الصفحة أو القسم) عند الإجابة.
+- **قاعدة المصادر الصارمة**: اذكر رقم المادة فقط إذا رأيته مكتوباً صراحةً في نص المقطع (مثل "المادة 15" أو "مادة 7"). إذا لم يظهر رقم المادة في النص فاكتفِ باسم القانون فقط — لا تخمّن أو تخترع أرقام مواد.
 - إذا لم تجد الإجابة في المقاطع المرجعية المقدمة، قل ذلك في جملة واحدة مباشرة، ولا تدّعي أن هذا القانون غير موجود لديك لمجرد عدم وروده في المقاطع الظاهرة.
 - لا تقل أبداً "لا تتوفر لدي ملفات لقوانين أخرى" — فقاعدة البيانات تغطي أكثر من 85 قانوناً.
 - استخدم اللغة العربية الفصحى الواضحة.
@@ -250,6 +250,21 @@ BASE_SYSTEM = """أنت مستشار قانوني متخصص في التشريع
 
 المقاطع المرجعية:
 {context}"""
+
+
+# ─── استخراج أرقام المواد من نص المقطع ──────────────────────────────────────
+def extract_articles(text: str) -> str:
+    """يستخرج أرقام المواد الموجودة فعلاً في النص لعرضها في التسمية"""
+    nums = re.findall(r'(?:المادة|مادة)\s*\(?(\d+)\)?', text)
+    if not nums:
+        return ""
+    # إزالة التكرار مع الحفاظ على الترتيب
+    seen, unique = set(), []
+    for n in nums:
+        if n not in seen:
+            seen.add(n)
+            unique.append(n)
+    return "م " + "، ".join(unique[:6])
 
 
 # ─── Routes ───────────────────────────────────────────────────────────────────
@@ -277,10 +292,11 @@ def chat():
     if results:
         parts = []
         for r in results:
+            articles_label = extract_articles(r["text"])
             page_label = f"ص{r['page']}" if r["page"] == r.get("page_end", r["page"]) \
                          else f"ص{r['page']}-{r['page_end']}"
-            section_label = f" | {r['section']}" if r["section"] else ""
-            parts.append(f"[{r['source']} | {page_label}{section_label}]\n{r['text']}")
+            ref = articles_label if articles_label else page_label
+            parts.append(f"[{r['source']} | {ref}]\n{r['text']}")
         context = "\n\n────────────\n\n".join(parts)
     else:
         context = "لا توجد مقاطع ذات صلة في قاعدة البيانات."
@@ -289,15 +305,18 @@ def chat():
 
     # ── بيانات المصادر للـ frontend ────────────────────────────────────────────
     sources = []
-    seen = set()
+    seen_keys = set()
     for r in results:
-        key = (r["source"], r["page"], r["section"])
-        if key not in seen:
-            seen.add(key)
+        articles_label = extract_articles(r["text"])
+        page_label = f"ص{r['page']}" if r["page"] == r.get("page_end", r["page"]) \
+                     else f"ص{r['page']}-{r['page_end']}"
+        key = (r["source"], r["page"])
+        if key not in seen_keys:
+            seen_keys.add(key)
             sources.append({
-                "source":  r["source"],
-                "page":    r["page"],
-                "section": r["section"],
+                "source":   r["source"],
+                "page":     r["page"],
+                "section":  articles_label or page_label,
             })
 
     # ── SSE Generator ──────────────────────────────────────────────────────────
