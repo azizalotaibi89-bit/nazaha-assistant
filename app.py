@@ -9,6 +9,7 @@ import re
 import traceback
 
 import anthropic
+import numpy as np
 from flask import Flask, Response, jsonify, render_template, request
 from flask_cors import CORS
 from rank_bm25 import BM25Okapi
@@ -152,8 +153,6 @@ def search(query: str, k: int = 8) -> tuple[list[dict], float]:
       3. نسخة بعد تحويل اللهجة
     لا يوجد LLM fallback — الإجابة من الملف أو لا إجابة.
     """
-    import numpy as np
-
     q_original = normalize_arabic(query)
     q_garbled  = normalize_arabic(garble_for_bidi(query))
     q_dialect  = normalize_arabic(dialect_to_msa(query))
@@ -242,34 +241,28 @@ def chat():
             yield f"data: {json.dumps({'type': 'text', 'content': msg}, ensure_ascii=False)}\n\n"
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
         return Response(no_results(), mimetype="text/event-stream",
-                        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+                        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no",
+                                 "Connection": "keep-alive"})
 
-    parts = []
+    # ── بناء السياق والمصادر (حساب label مرة واحدة فقط لكل chunk) ─────────────
+    SSE_HEADERS = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"}
+    parts, sources, seen_keys = [], [], set()
     for r in results:
-        articles_label = extract_articles(r["text"])
-        page_label = f"ص{r['page']}" if r["page"] == r.get("page_end", r["page"]) \
-                     else f"ص{r['page']}-{r['page_end']}"
-        ref = articles_label if articles_label else page_label
+        arts  = extract_articles(r["text"])
+        plabel = f"ص{r['page']}" if r["page"] == r.get("page_end", r["page"]) \
+                 else f"ص{r['page']}-{r['page_end']}"
+        ref   = arts or plabel
         parts.append(f"[{r['source']} | {ref}]\n{r['text']}")
-    context = "\n\n────────────\n\n".join(parts)
-
-    system_prompt = BASE_SYSTEM.format(context=context)
-
-    # ── بيانات المصادر للـ frontend ────────────────────────────────────────────
-    sources = []
-    seen_keys = set()
-    for r in results:
-        articles_label = extract_articles(r["text"])
-        page_label = f"ص{r['page']}" if r["page"] == r.get("page_end", r["page"]) \
-                     else f"ص{r['page']}-{r['page_end']}"
         key = (r["source"], r["page"])
         if key not in seen_keys:
             seen_keys.add(key)
-            sources.append({
-                "source":   r["source"],
-                "page":     r["page"],
-                "section":  articles_label or page_label,
-            })
+            sources.append({"source": r["source"], "page": r["page"], "section": ref})
+
+    context       = "\n\n────────────\n\n".join(parts)
+    system_prompt = BASE_SYSTEM.format(context=context)
+
+    # تحديد سجل المحادثة — آخر 10 رسائل فقط لتجنب تجاوز حد الـ tokens
+    history = history[-10:]
 
     # ── SSE Generator ──────────────────────────────────────────────────────────
     def generate():
@@ -297,15 +290,7 @@ def chat():
             traceback.print_exc()
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)}, ensure_ascii=False)}\n\n"
 
-    return Response(
-        generate(),
-        mimetype="text/event-stream",
-        headers={
-            "Cache-Control":   "no-cache",
-            "X-Accel-Buffering": "no",
-            "Connection":      "keep-alive",
-        },
-    )
+    return Response(generate(), mimetype="text/event-stream", headers=SSE_HEADERS)
 
 
 @app.route("/health")
