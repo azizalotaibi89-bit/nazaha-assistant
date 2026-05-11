@@ -141,58 +141,25 @@ def dialect_to_msa(text: str) -> str:
     return text
 
 
-# ─── تحويل LLM للكلمات الرئيسية (fallback) ──────────────────────────────────
-def extract_keywords_llm(question: str, api_key: str) -> str:
-    """استخراج كلمات بحث قانونية فصحى من السؤال باستخدام Claude Haiku"""
-    try:
-        client = anthropic.Anthropic(api_key=api_key)
-        msg = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=60,
-            messages=[{
-                "role": "user",
-                "content": (
-                    "حوّل هذا السؤال إلى كلمات بحث قانونية بالعربية الفصحى فقط "
-                    "(بدون شرح، أقل من 8 كلمات):\n" + question
-                )
-            }]
-        )
-        return msg.content[0].text.strip()
-    except Exception:
-        return question
+# ─── دالة البحث (ملف فقط — بدون LLM fallback) ───────────────────────────────
+MIN_SCORE = 2.0   # الحد الأدنى لقبول النتيجة — تحته لا يُرسل شيء لـ Claude
 
-
-# ─── دالة البحث ───────────────────────────────────────────────────────────────
-def _bm25_search(tokens: list[str], k: int) -> tuple[list[dict], float]:
-    """تشغيل BM25 وإرجاع النتائج مع أعلى نقاط"""
-    if not tokens:
-        return [], 0.0
-    scores  = BM25_INDEX.get_scores(tokens)
-    top_score = max(scores) if len(scores) > 0 else 0.0
-    ranked  = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)
-    results = [CHUNKS[i] for i in ranked[:k] if scores[i] > 0]
-    return results, top_score
-
-
-def search(query: str, k: int = 8, api_key: str = "") -> list[dict]:
+def search(query: str, k: int = 8) -> tuple[list[dict], float]:
     """
-    BM25 search متعدد المحاور:
+    BM25 search متعدد المحاور من الملف فقط:
       1. استعلام أصلي
       2. نسخة BiDi garbled
       3. نسخة بعد تحويل اللهجة
-      4. LLM keyword extraction (إذا كانت النتائج ضعيفة)
+    لا يوجد LLM fallback — الإجابة من الملف أو لا إجابة.
     """
-    # ── إعداد الاستعلامات ──────────────────────────────────────────────────────
+    import numpy as np
+
     q_original = normalize_arabic(query)
     q_garbled  = normalize_arabic(garble_for_bidi(query))
     q_dialect  = normalize_arabic(dialect_to_msa(query))
 
-    queries = {q_original, q_garbled, q_dialect}
-
-    # ── تجميع النقاط من جميع الاستعلامات ─────────────────────────────────────
-    import numpy as np
     combined = None
-    for q in queries:
+    for q in {q_original, q_garbled, q_dialect}:
         tokens = q.split()
         if not tokens:
             continue
@@ -200,57 +167,33 @@ def search(query: str, k: int = 8, api_key: str = "") -> list[dict]:
         combined = scores if combined is None else np.maximum(combined, scores)
 
     if combined is None:
-        return []
+        return [], 0.0
 
     top_score = float(np.max(combined))
     ranked    = sorted(range(len(combined)), key=lambda i: combined[i], reverse=True)
-    results   = [CHUNKS[i] for i in ranked[:k] if combined[i] > 0]
+    results   = [CHUNKS[i] for i in ranked[:k] if combined[i] >= MIN_SCORE]
 
-    # ── LLM fallback إذا كانت النتائج ضعيفة ──────────────────────────────────
-    SCORE_THRESHOLD = 3.0
-    if top_score < SCORE_THRESHOLD and api_key:
-        kw = extract_keywords_llm(query, api_key)
-        if kw and kw != query:
-            kw_tokens = normalize_arabic(kw).split()
-            if kw_tokens:
-                kw_scores  = BM25_INDEX.get_scores(kw_tokens)
-                kw_combined = np.maximum(combined, kw_scores)
-                kw_ranked   = sorted(range(len(kw_combined)),
-                                     key=lambda i: kw_combined[i], reverse=True)
-                results = [CHUNKS[i] for i in kw_ranked[:k] if kw_combined[i] > 0]
-
-    return results
+    return results, top_score
 
 
 # ─── System Prompt ────────────────────────────────────────────────────────────
-BASE_SYSTEM = """أنت مستشار قانوني متخصص في التشريعات والقوانين الكويتية.
+BASE_SYSTEM = """أنت مستشار قانوني متخصص حصراً في التشريعات الكويتية.
 
-قاعدة البيانات لديك تحتوي على مقاطع من أكثر من 85 تشريعاً كويتياً، أبرزها:
-القانون المدني، قانون التجارة، قانون المرافعات، قانون الإفلاس، قانون الشركات،
-قانون الجزاء الكويتي، قانون الإجراءات والمحاكمات الجزائية، قانون مكافحة المخدرات،
-قانون مكافحة الفساد ولائحته التنفيذية، قانون غسل الأموال، قانون مكافحة الإرهاب،
-قانون الأحوال الشخصية (مدني وجعفري)، قانون الأحداث، قانون العمل في القطاع الأهلي،
-قانون التأمينات الاجتماعية، قانون المرور، قانون حماية البيئة، قانون الجنسية الكويتية،
-دستور دولة الكويت، قانون انتخابات مجلس الأمة، قانون هيئة أسواق المال،
-قانون هيئة تنظيم الاتصالات، قانون المطبوعات والنشر، قانون الإعلام الإلكتروني،
-قانون حقوق المؤلف، قانون حقوق الطفل، قانون التوثيق، قانون الإثبات،
-قانون مزاولة مهنة الطب، قانون حماية الأموال العامة، قانون الكشف عن العمولات،
-قانون مكافحة الاتجار بالأشخاص، قانون البلدية، قانون التسجيل العقاري،
-قانون الإيجار، قانون المعاملات الإلكترونية، قانون تنظيم القضاء، وغيرها.
+**قاعدة مطلقة وغير قابلة للكسر:**
+إجابتك مقتصرة كلياً على النصوص الواردة في المقاطع المرجعية أدناه. هذه النصوص مستخرجة من ملف التشريعات الكويتية الرسمي. لا تُضف حرفاً واحداً من معرفتك الخاصة أو من تدريبك.
 
-قواعد الإجابة — يجب اتباعها بدقة تامة:
+**محظور تماماً:**
+- الاستشهاد بأي قانون سعودي أو إماراتي أو مصري أو غيره مهما بدا مشابهاً
+- اختراع أو تخمين أرقام مواد غير موجودة في النص أمامك
+- إكمال المعلومات من الذاكرة أو التدريب
 
-1. **الكويت فقط**: أنت مختص حصراً بالتشريعات الكويتية. لا تستخدم أبداً معلومات من قوانين دول أخرى كالسعودية أو الإمارات أو مصر أو غيرها، حتى لو بدت مشابهة. إذا لم تجد الإجابة في المقاطع المقدمة فقل "لا تتوفر لديّ معلومات كافية في قاعدة البيانات الكويتية للإجابة على هذا السؤال" — ولا تتجاوز ذلك.
+**إذا كان النص المقدم كافياً:**
+أجب بثقة ومباشرة مستنداً حرفياً إليه. اذكر رقم المادة فقط إذا ظهر صراحةً في النص.
 
-2. **المصادر الصارمة**: اذكر رقم المادة فقط إذا رأيته مكتوباً صراحةً في نص المقطع. إذا لم يظهر رقم المادة فاكتفِ باسم القانون — لا تخمّن أو تخترع أرقاماً.
+**الأسلوب:**
+العربية الفصحى الواضحة. لا تعد ذكر السؤال. استخدم **عناوين بولد** ونقاط عند الحاجة.
 
-3. **لا هلوسة**: لا تكمّل المعلومات من تدريبك الخاص. كل ما تقوله يجب أن يكون مستنداً حرفياً إلى المقاطع المرجعية أدناه فقط.
-
-4. **لا تتوفر لدي ملفات لقوانين أخرى**: لا تقل هذه الجملة أبداً — قاعدة البيانات تغطي أكثر من 85 قانوناً كويتياً.
-
-5. **الأسلوب**: تجيب بثقة ومباشرة بالعربية الفصحى. لا تعيد ذكر السؤال. استخدم **عناوين بولد** ونقاط عند الحاجة.
-
-المقاطع المرجعية:
+المقاطع المرجعية من ملف التشريعات الكويتية:
 {context}"""
 
 
@@ -288,20 +231,27 @@ def chat():
     if not api_key:
         return jsonify({"error": "ANTHROPIC_API_KEY غير مضبوط على الخادم"}), 500
 
-    # ── البحث ──────────────────────────────────────────────────────────────────
-    results = search(question, api_key=api_key)
+    # ── البحث من الملف فقط ────────────────────────────────────────────────────
+    results, top_score = search(question)
 
-    if results:
-        parts = []
-        for r in results:
-            articles_label = extract_articles(r["text"])
-            page_label = f"ص{r['page']}" if r["page"] == r.get("page_end", r["page"]) \
-                         else f"ص{r['page']}-{r['page_end']}"
-            ref = articles_label if articles_label else page_label
-            parts.append(f"[{r['source']} | {ref}]\n{r['text']}")
-        context = "\n\n────────────\n\n".join(parts)
-    else:
-        context = "⚠️ لم يتم العثور على مقاطع ذات صلة في قاعدة البيانات الكويتية. يجب الرد بجملة واحدة فقط تفيد بعدم توفر معلومات كافية، دون الاستعانة بأي مصدر خارجي."
+    # إذا لم توجد نتائج كافية → رد فوري بدون استدعاء Claude
+    if not results:
+        def no_results():
+            msg = "لا تتوفر في قاعدة البيانات الكويتية معلومات كافية للإجابة على هذا السؤال."
+            yield f"data: {json.dumps({'type': 'sources', 'sources': []}, ensure_ascii=False)}\n\n"
+            yield f"data: {json.dumps({'type': 'text', 'content': msg}, ensure_ascii=False)}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+        return Response(no_results(), mimetype="text/event-stream",
+                        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+    parts = []
+    for r in results:
+        articles_label = extract_articles(r["text"])
+        page_label = f"ص{r['page']}" if r["page"] == r.get("page_end", r["page"]) \
+                     else f"ص{r['page']}-{r['page_end']}"
+        ref = articles_label if articles_label else page_label
+        parts.append(f"[{r['source']} | {ref}]\n{r['text']}")
+    context = "\n\n────────────\n\n".join(parts)
 
     system_prompt = BASE_SYSTEM.format(context=context)
 
